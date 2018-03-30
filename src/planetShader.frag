@@ -33,6 +33,9 @@ uniform vec3 auraColor;
 // ambient lighting, used to illuminate areas that the light doesn't hit
 uniform vec3 ambientLightColor;
 
+uniform float specPower;
+uniform float normalWeight;
+
 // rotation of the planet axis
 uniform mat3 rotation;
 
@@ -62,8 +65,9 @@ void main(){
     vec2 uv = vec2(x, y);
 
     #ifdef USE_NORMAL
-    vec3 normal = normalize(((texture2D(normalTexture, uv).xyz * 2.) - 1.) * vec3(0.1, 0.1, 1));
+    vec3 normal = normalize((texture2D(normalTexture, uv).xyz * 2.) - 1.);
     normal.z = clamp(normal.z, 0., 1.);
+    normal.x = -normal.x;
     vec3 bitangent = -cross(point, vec3(1.0, 0., 0.));
     vec3 tangent = cross(bitangent, point);
     //manually transposed
@@ -73,24 +77,32 @@ void main(){
         tangent.z, bitangent.z, point.z);
 
     normal *= tbn;
+    normal = mix(point, normal, normalWeight);
     #else
     vec3 normal = point;
     #endif
 
-    float lightIntensity = clamp(dot(normal, normalize(lightPos)), 0.0, 1.0);
+    float lightIntensity = clamp(dot(normal, lightPos), 0.0, 1.0);
     vec3 light = lightIntensity * lightColor + (1. - lightIntensity) * ambientLightColor;
 
+    #ifdef USE_TEXTURE
     vec4 texel = texture2D(planetTexture, uv);
+    #else
+    vec4 texel = vec4(1., 1., 1., 1.);
+    #endif
 
     #ifdef USE_SPEC
     vec3 specIntensity = texture2D(specTexture, uv).xyz;
-    float specLight = pow(lightIntensity, 16.) * lightIntensity;
-    texel += vec4(specLight * specIntensity, 1.);
+    vec3 lightRef = normalize(reflect(lightPos, normal));
+    float specLight = pow(lightIntensity, specPower);
+    texel += vec4(specLight * specIntensity * light, 1.);
     #endif
 
     #ifdef USE_NIGHT
     float invLight = clamp(.8 - lightIntensity, 0., 1.);
     texel *= vec4(light, 1.) + texture2D(nightTexture, uv) * (invLight * invLight * invLight);
+    #else 
+    texel *= vec4(light, 1.);
     #endif
 
     // feathering

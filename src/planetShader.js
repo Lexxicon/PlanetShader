@@ -5,20 +5,21 @@ window.onload = (function () {
         NORMAL: 'normal',
         SPEC: 'specular'
     }
-
     var container;
     var camera, scene, renderer, controls;
     var uniforms;
     var mesh;
+    var material;
     var userImage;
     var fragSrc, vertSrc;
 
+    var dayDrop, nightDrop, normalDrop, specDrop;
     var dayMap, nightMap, normalMap, specMap;
     var dayTex, nightTex, normalTex, specTex;
 
     var guiData = {
-        antialias: 0.98,
-        planetRotationSpeed: 0.02,
+        antialias: 0.993,
+        planetRotationSpeed: 0.01,
         planetSize: 10.0,
         auraSize: 0.3,
         lightPosX: 1,
@@ -29,19 +30,33 @@ window.onload = (function () {
         ambientLightColor: [10, 10, 10],
         planetRotationX: 0,
         planetRotationY: 0,
-        planetRotationZ: 0
+        planetRotationZ: 0,
+        useTex: true,
+        useSpec: true,
+        specPower: 16,
+        useNorm: true,
+        normalWeight: 1,
+        useNight: true
     };
 
-    dayMap = document.getElementById(SRC.DAY);
-    dayTex = asTexture(dayMap);
+    dayMap = document.createElement("img");
+    dayDrop = document.getElementById(SRC.DAY);
+    dayMap.src = dayDrop.src;
+    dayTex = asTexture(dayMap, THREE.NearestFilter);
 
-    nightMap = document.getElementById(SRC.NIGHT);
+    nightMap = document.createElement("img");
+    nightDrop = document.getElementById(SRC.NIGHT); 
+    nightMap.src = nightDrop.src;
     nightTex = asTexture(nightMap);
 
-    normalMap = document.getElementById(SRC.NORMAL);
+    normalMap =  document.createElement("img");
+    normalDrop = document.getElementById(SRC.NORMAL, THREE.Linear);
+    normalMap.src = normalDrop.src;
     normalTex = asTexture(normalMap);
 
-    specMap = document.getElementById(SRC.SPEC);
+    specMap =  document.createElement("img");
+    specDrop = document.getElementById(SRC.SPEC);
+    specMap.src = specDrop.src;
     specTex = asTexture(specMap);
 
     var loader = new THREE.FileLoader();
@@ -59,10 +74,10 @@ window.onload = (function () {
         }
     );
 
-    function asTexture(image) {
+    function asTexture(image, filter) {
         image.crossOrigin = "anonymous";
         var texture = new THREE.Texture(image);
-        texture.minFilter = THREE.NearestFilter;
+        texture.minFilter = filter || THREE.LinearMipMapNearestFilter;
 
         image.onload = () =>{
             texture.needsUpdate = true; 
@@ -75,10 +90,10 @@ window.onload = (function () {
     function continueIfLoaded() {
         if (fragSrc && vertSrc) {
             init();
-            setupDND(dayMap);
-            setupDND(nightMap);
-            setupDND(normalMap);
-            setupDND(specMap);
+            setupDND(dayDrop, dayMap);
+            setupDND(nightDrop, nightMap);
+            setupDND(normalDrop, normalMap);
+            setupDND(specDrop, specMap);
             setupGui();
             animate();
         }
@@ -96,6 +111,8 @@ window.onload = (function () {
             time: { value: 1.0 },
             antialias: {},
             planetRotationSpeed: {},
+            specPower: {},
+            normalWeight: {},
             planetSize: {},
             auraSize: {},
             planetTexture: { value: dayTex },
@@ -111,11 +128,12 @@ window.onload = (function () {
 
         updateUniforms();
 
-        var material = new THREE.ShaderMaterial({
+        material = new THREE.ShaderMaterial({
             uniforms: uniforms,
             vertexShader: vertSrc,
             fragmentShader: fragSrc,
             defines: {
+                USE_TEXTURE: true,
                 USE_NORMAL: true,
                 USE_SPEC: true,
                 USE_NIGHT: true
@@ -126,7 +144,7 @@ window.onload = (function () {
 
         mesh = new THREE.Mesh(geometry, material);
         scene.add(mesh);
-        renderer = new THREE.WebGLRenderer({precision: "mediump"});
+        renderer = new THREE.WebGLRenderer();
         renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
 
@@ -157,10 +175,43 @@ window.onload = (function () {
         current.add(guiData, "planetRotationY", -180, 180, 1).name("Y").onChange(updateUniforms);
         current.add(guiData, "planetRotationZ", -180, 180, 1).name("Z").onChange(updateUniforms);
 
+        current = gui.addFolder("Maps");
+        current.add(guiData, "useTex").name("Texture").onChange(updateDefines);
+        current.add(guiData, "useNight").name("Emissive").onChange(updateDefines);
+        current.add(guiData, "useNorm").name("Normal").onChange(updateDefines);
+        current.add(guiData, "normalWeight", 0 , 1).name("Normal weight").onChange(updateUniforms);
+        current.add(guiData, "useSpec").name("Specular").onChange(updateDefines);
+        current.add(guiData, "specPower", 0 , 36).name("Specular Power").onChange(updateUniforms);
+
         current = gui.addFolder("Misc control");
         current.add(guiData, "auraSize", 0.0, 1, 0.001).name("Aura Size").onChange(updateUniforms);
         current.add(guiData, "planetRotationSpeed", 0.0, 0.5, 0.001).name("Rotation Speed").onChange(updateUniforms);
         current.add(guiData, "antialias", 0.5, 1, 0.001).name("Feathering").onChange(updateUniforms);
+    }
+
+    function updateDefines(){
+        var def = material.defines;
+        if(guiData.useNorm){
+            def.USE_NORMAL = true;
+        }else{
+            delete def.USE_NORMAL;
+        }
+        if(guiData.useNight){
+            def.USE_NIGHT = true;
+        }else{
+            delete def.USE_NIGHT;
+        }
+        if(guiData.useSpec){
+            def.USE_SPEC = true;
+        }else{
+            delete def.USE_SPEC;
+        }
+        if(guiData.useTex){
+            def.USE_TEXTURE = true;
+        }else{
+            delete def.USE_TEXTURE;
+        }
+        material.needsUpdate = true;
     }
 
     function animate(timestamp) {
@@ -170,20 +221,22 @@ window.onload = (function () {
     }
 
     function updateUniforms() {
+        uniforms.normalWeight.value = guiData.normalWeight;
+        uniforms.specPower.value = 36 - guiData.specPower;
         uniforms.antialias.value = guiData.antialias;
         uniforms.planetRotationSpeed.value = -guiData.planetRotationSpeed;
         uniforms.planetSize.value = guiData.planetSize;
         uniforms.auraSize.value = guiData.auraSize;
-        uniforms.lightPos.value = new THREE.Vector3(guiData.lightPosX, guiData.lightPosY, guiData.lightPosZ);
+        uniforms.lightPos.value = new THREE.Vector3(guiData.lightPosX, guiData.lightPosY, guiData.lightPosZ).normalize();
         uniforms.lightColor.value = [guiData.lightColor[0] / 255, guiData.lightColor[1] / 255, guiData.lightColor[2] / 255];
         uniforms.auraColor.value = [guiData.auraColor[0] / 255, guiData.auraColor[1] / 255, guiData.auraColor[2] / 255];
         uniforms.ambientLightColor.value = [guiData.ambientLightColor[0] / 255, guiData.ambientLightColor[1] / 255, guiData.ambientLightColor[2] / 255];
         uniforms.rotation.value = rotate(guiData.planetRotationX, guiData.planetRotationY, guiData.planetRotationZ);
     }
 
-    function setupDND(image) {
+    function setupDND(image, data) {
         image.addEventListener('dragover', handleDragOver, false);
-        image.addEventListener('drop', handleFileSelect(image), false);
+        image.addEventListener('drop', handleFileSelect(image, data), false);
     }
 
     function onWindowResize(event) {
@@ -218,7 +271,7 @@ window.onload = (function () {
         return xhr;
     }
 
-    function handleFileSelect(image) {
+    function handleFileSelect(image, data) {
         var defaultImage = image.src;
         return (evt) => {
             evt.stopPropagation();
@@ -229,6 +282,7 @@ window.onload = (function () {
                 var xhr = createCORSRequest('GET', url);
                 xhr.onload = function() {
                     image.src = url;
+                    data.src = url;
                 };
                 
                 xhr.onerror = function() {
@@ -242,6 +296,7 @@ window.onload = (function () {
                 var reader = new FileReader();
                 reader.onload = function (e) {
                     image.src = e.target.result;
+                    data.src = e.target.result;
                 };
 
                 for (var i = 0, f; f = files[i]; i++) {
@@ -250,6 +305,7 @@ window.onload = (function () {
                     } else {
                         oldImage = null;
                         image.src = defaultImage;
+                        data.src = defaultImage;
                     }
                 }
             }
