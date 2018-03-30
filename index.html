@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<script src="./lib/three.min.js"></script>
+<script src="./lib/dat.gui.min.js"></script>
+<script src="./lib/OrbitControls.js"></script>
+<script src="./src/planetShader.js"></script>
+
+<head>
+    <title>shader demo</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            color: #ffffff;
+            font-family: Monospace;
+            font-size: 13px;
+            text-align: center;
+            font-weight: bold;
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            padding: 5px;
+        }
+
+        #textures {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        img {
+            width: 200px;
+            height: 100px;
+        }
+        
+        a {
+            color: #eeeeee;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">
+        renders an equirectangular projection texture as a sphere without 3d geometry
+        <br>camera pan/zoom/rotate with left/middle/right mouse button
+        <br>drop planet texture files to render them
+        <br>default images sourced from
+        <a href="https://www.solarsystemscope.com/textures">here</a>, <a href="https://visibleearth.nasa.gov/view_cat.php?categoryID=1484">here</a>
+        <br>code:
+        <a href="./src/planetShader.js">js</a>
+        <a href="./src/planetShader.frag">frag</a>
+        <a href="./src/planetShader.vert">vert</a>
+    </div>
+    <div id="textures" class="left">
+        texture
+        <br>
+        <img id="texture" src="https://i.imgur.com/D6eqdTW.jpg">
+        <br> emissive
+        <br>
+        <img id="night" src="https://i.imgur.com/3FCvh9B.gif">
+        <br> normal
+        <br>
+        <img id="normal" src="https://i.imgur.com/plZXPf0.jpg">
+        <br> specular
+        <br>
+        <img id="specular" src="https://i.imgur.com/ouvrrBz.jpg">
+    </div>
+    <div id="container" class="center"></div>
+
+</body>
+
+</html>
